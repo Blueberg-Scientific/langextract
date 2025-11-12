@@ -164,6 +164,7 @@ class Annotator:
       attribute_suffix: str = data.ATTRIBUTE_SUFFIX,
       fence_output: bool = False,
       format_handler: fh.FormatHandler | None = None,
+      disable_grounding: bool = False,
   ):
     """Initializes Annotator.
 
@@ -178,8 +179,12 @@ class Annotator:
         the resolver expects it. When False, raw JSON/YAML is expected.
         Defaults to False. If format_handler is provided, it takes precedence.
       format_handler: Optional FormatHandler for managing format-specific logic.
+      disable_grounding: When True, skips alignment step that maps extractions
+        to source positions. Improves performance but extractions will not have
+        char_interval or token_interval set. Defaults to False.
     """
     self._language_model = language_model
+    self._disable_grounding = disable_grounding
 
     if format_handler is None:
       format_handler = fh.FormatHandler(
@@ -196,7 +201,9 @@ class Annotator:
     )
 
     logging.debug(
-        "Annotator initialized with format_handler: %s", format_handler
+        "Annotator initialized with format_handler: %s, disable_grounding: %s",
+        format_handler,
+        disable_grounding,
     )
 
   def annotate_documents(
@@ -377,27 +384,33 @@ class Annotator:
               scored_outputs[0].output, debug=debug, **kwargs
           )
 
-          token_offset = (
-              text_chunk.token_interval.start_index
-              if text_chunk.token_interval
-              else 0
-          )
-          char_offset = (
-              text_chunk.char_interval.start_pos
-              if text_chunk.char_interval
-              else 0
-          )
+          if self._disable_grounding:
+            # Skip alignment - use resolved extractions directly
+            for extraction in resolved_extractions:
+              per_doc[text_chunk.document_id].append(extraction)
+          else:
+            # Perform alignment to map extractions to source positions
+            token_offset = (
+                text_chunk.token_interval.start_index
+                if text_chunk.token_interval
+                else 0
+            )
+            char_offset = (
+                text_chunk.char_interval.start_pos
+                if text_chunk.char_interval
+                else 0
+            )
 
-          aligned_extractions = resolver.align(
-              resolved_extractions,
-              text_chunk.chunk_text,
-              token_offset,
-              char_offset,
-              **kwargs,
-          )
+            aligned_extractions = resolver.align(
+                resolved_extractions,
+                text_chunk.chunk_text,
+                token_offset,
+                char_offset,
+                **kwargs,
+            )
 
-          for extraction in aligned_extractions:
-            per_doc[text_chunk.document_id].append(extraction)
+            for extraction in aligned_extractions:
+              per_doc[text_chunk.document_id].append(extraction)
 
           if show_progress and text_chunk.char_interval is not None:
             chars_processed += (

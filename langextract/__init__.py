@@ -20,11 +20,14 @@ with lazy loading for other submodules accessed via attribute access.
 
 from __future__ import annotations
 
+import functools
 import importlib
+import inspect as _inspect
 import sys
 from typing import Any, Dict
 
-from langextract import visualization
+# Import submodules directly to avoid circular imports
+from langextract.visualization import visualize as visualize_func
 from langextract.extraction import extract as extract_func
 
 __all__ = [
@@ -50,14 +53,20 @@ __all__ = [
 _CACHE: Dict[str, Any] = {}
 
 
+# Create wrapper that preserves signature for IDE/tool inspection
+@functools.wraps(extract_func)
 def extract(*args: Any, **kwargs: Any):
   """Top-level API: lx.extract(...)."""
   return extract_func(*args, **kwargs)
 
+# Preserve the original signature for inspection tools
+extract.__wrapped__ = extract_func
+extract.__signature__ = _inspect.signature(extract_func)
+
 
 def visualize(*args: Any, **kwargs: Any):
   """Top-level API: lx.visualize(...)."""
-  return visualization.visualize(*args, **kwargs)
+  return visualize_func(*args, **kwargs)
 
 
 # PEP 562 lazy loading
