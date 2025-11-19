@@ -23,7 +23,7 @@ from __future__ import annotations
 import abc
 import collections
 from collections.abc import Iterator, Mapping, Sequence
-import difflib
+import cydifflib
 import functools
 import itertools
 import operator
@@ -484,7 +484,7 @@ class WordAligner:
 
   def __init__(self):
     """Initialize the WordAligner with difflib SequenceMatcher."""
-    self.matcher = difflib.SequenceMatcher(autojunk=False)
+    self.matcher = cydifflib.SequenceMatcher(autojunk=False)
     self.source_tokens: Sequence[str] | None = None
     self.extraction_tokens: Sequence[str] | None = None
 
@@ -585,7 +585,7 @@ class WordAligner:
     extraction_counts = collections.Counter(extraction_tokens_norm)
     min_overlap = int(len_e * fuzzy_alignment_threshold)
 
-    matcher = difflib.SequenceMatcher(autojunk=False, b=extraction_tokens_norm)
+    matcher = cydifflib.SequenceMatcher(autojunk=False, b=extraction_tokens_norm)
 
     for window_size in range(len_e, max_window + 1):
       if window_size > len(source_tokens):
